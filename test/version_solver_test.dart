@@ -1022,6 +1022,33 @@ void backtracking() {
     await expectResolves(
         result: {'a': '1.0.0', 'b': '1.0.0', 'c': '1.0.0', 'd': '2.0.0'});
   });
+
+  test("cleans up the derivation graph", () async {
+    await servePackages((builder) {
+      builder.serve('menu', '1.1.0', deps: {'dropdown': '^2.0.0'});
+      builder.serve('menu', '1.0.0', deps: {'dropdown': '^1.0.0'});
+
+      builder.serve('dropdown', '2.0.0', deps: {'icons': '^2.0.0'});
+      builder.serve('dropdown', '1.8.0', deps: {'intl': '^4.0.0'});
+
+      builder.serve('icons', '2.0.0');
+      builder.serve('icons', '1.0.0');
+
+      builder.serve('intl', '5.0.0');
+      builder.serve('intl', '4.0.0');
+    });
+
+    await d.appDir({"menu": "^1.0.0", "icons": "^1.0.0", "intl": "^5.0.0"}).create();
+    await expectResolves(error: equalsIgnoringWhitespace("""
+      Because dropdown <2.0.0 depends on intl ^4.0.0 and myapp depends on intl
+        ^5.0.0, dropdown <2.0.0 is forbidden.
+      And because menu <1.1.0 depends on dropdown ^1.0.0, menu <1.1.0 is
+        forbidden.
+      And because menu >=1.1.0 depends on dropdown ^2.0.0 which depends on icons
+        ^2.0.0, every version of menu requires icons ^2.0.0.
+      So, because myapp depends on both menu ^1.0.0 and icons ^1.0.0, version solving failed.
+    """));
+  });
 }
 
 void dartSdkConstraint() {

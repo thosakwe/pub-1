@@ -35,6 +35,10 @@ abstract class IncompatibilityCause {
   /// The incompatibility indicates that the package has an unknown source.
   static const IncompatibilityCause unknownSource =
       const _Cause("unknown source");
+
+  /// A cause used exclusively for testing.
+  static const IncompatibilityCause noReason =
+      const _Cause("no reason");
 }
 
 /// The incompatibility was derived from two existing incompatibilities during

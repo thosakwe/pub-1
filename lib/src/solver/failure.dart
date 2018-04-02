@@ -12,6 +12,8 @@ import '../sdk.dart' as sdk;
 import '../utils.dart';
 import 'incompatibility.dart';
 import 'incompatibility_cause.dart';
+import 'set_relation.dart';
+import 'simplify.dart';
 
 /// An exception indicating that version solving failed.
 class SolveFailure implements ApplicationException {
@@ -36,13 +38,11 @@ class SolveFailure implements ApplicationException {
     return null;
   }
 
-  SolveFailure(this.incompatibility) {
-    assert(incompatibility.terms.single.package.isRoot);
-  }
+  SolveFailure(this.incompatibility);
 
   /// Describes how [incompatibility] was derived, and thus why version solving
   /// failed.
-  String toString() => new _Writer(incompatibility).write();
+  String toString() => new _Writer(simplify(incompatibility)).write();
 }
 
 /// A class that writes a human-readable description of the cause of a

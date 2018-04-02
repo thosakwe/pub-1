@@ -148,6 +148,8 @@ class Term {
   /// same name as [package].
   Term difference(Term other) => intersect(other.inverse); // A ∖ B → A ∩ not B
 
+  Term union(Term other) => inverse.intersect(other.inverse)?.inverse;
+
   /// Returns whether [other] is compatible with [package].
   bool _compatiblePackage(PackageRange other) =>
       package.isRoot || other.isRoot || other.samePackage(package);
