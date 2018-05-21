@@ -4,6 +4,9 @@ sudo: false
 dart:
   - dev
 
+env:
+  - DART_VM_OPTIONS=--preview-dart-2
+
 dart_task:
   - test: --preset travis --total-shards 5 --shard-index 0
   - test: --preset travis --total-shards 5 --shard-index 1
@@ -16,12 +19,12 @@ dart_task:
 # Create a snapshot to improve startup time. Tests will automatically use this
 # snapshot if it's available.
 before_script:
-  - dart --no-checked --snapshot=bin/pub.dart.snapshot --snapshot-kind=app-jit bin/pub.dart --help
+  - dart --preview-dart-2 --no-checked --snapshot=bin/pub.dart.snapshot --snapshot-kind=app-jit bin/pub.dart --help
 
 # Only building these branches means that we don't run two builds for each pull
 # request.
 branches:
-  only: [master, travis, /^feature\./]
+  only: [master, travis, /^feature\./, dart2-test]
 
 cache:
   directories:
