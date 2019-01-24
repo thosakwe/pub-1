@@ -175,8 +175,12 @@ Credentials _loadCredentials(SystemCache cache) {
     var path = _credentialsFile(cache);
     if (!fileExists(path)) return null;
 
-    // TODO: AAA
-    var credentials = Credentials.fromJson(readTextFile(path));
+    // Call _findCredentialsForThisHost, which will find credentials
+    // for the current host.
+    var credentialsString = _findCredentialsForThisHost(cache);
+    if (credentialsString == null) return null;
+
+    var credentials = Credentials.fromJson(credentialsString);
     if (credentials.isExpired && !credentials.canRefresh) {
       log.error("Pub's authorization to upload packages has expired and "
           "can't be automatically refreshed.");
