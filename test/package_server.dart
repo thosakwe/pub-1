@@ -58,7 +58,7 @@ class PackageServer {
   /// package to serve.
   ///
   /// This is preserved so that additional packages can be added.
-  final _builder = new PackageServerBuilder._();
+  final _builder = PackageServerBuilder._();
 
   /// A future that will complete to the port used for the server.
   int get port => _inner.port;
@@ -73,7 +73,7 @@ class PackageServer {
   static Future<PackageServer> start(
       void callback(PackageServerBuilder builder)) async {
     var descriptorServer = await DescriptorServer.start();
-    var server = new PackageServer._(descriptorServer);
+    var server = PackageServer._(descriptorServer);
     descriptorServer.contents
       ..add(d.dir('api', [server._servedApiPackageDir]))
       ..add(server._servedPackageDir);
@@ -133,7 +133,7 @@ class PackageServer {
 /// A builder for specifying which packages should be served by [servePackages].
 class PackageServerBuilder {
   /// A map from package names to a list of concrete packages to serve.
-  final _packages = new Map<String, List<_ServedPackage>>();
+  final _packages = <String, List<_ServedPackage>>{};
 
   PackageServerBuilder._();
 
@@ -152,11 +152,11 @@ class PackageServerBuilder {
     if (pubspec != null) pubspecFields.addAll(pubspec);
     if (deps != null) pubspecFields["dependencies"] = deps;
 
-    if (contents == null) contents = [d.libDir(name, "$name $version")];
+    contents ??= [d.libDir(name, "$name $version")];
     contents = [d.file("pubspec.yaml", yaml(pubspecFields))]..addAll(contents);
 
     var packages = _packages.putIfAbsent(name, () => []);
-    packages.add(new _ServedPackage(pubspecFields, contents));
+    packages.add(_ServedPackage(pubspecFields, contents));
   }
 
   /// Clears all existing packages from this builder.
@@ -170,7 +170,7 @@ class _ServedPackage {
   final Map pubspec;
   final List<d.Descriptor> contents;
 
-  Version get version => new Version.parse(pubspec['version']);
+  Version get version => Version.parse(pubspec['version']);
 
   _ServedPackage(this.pubspec, this.contents);
 }

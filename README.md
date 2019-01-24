@@ -6,7 +6,7 @@ Thanks for being interested in contributing to pub! Contributing to a new
 project can be hard: there's a lot of new code and practices to learn. This
 document is intended to get you up and running as quickly as possible. If you're
 looking for documentation on using pub, try
-[dartlang.org](https://www.dartlang.org/tools/pub/).
+[dartlang.org](https://www.dartlang.org/tools/pub).
 
 The first step towards contributing is to contact the pub dev team and let us
 know what you're working on, so we can be sure not to start working on the same
@@ -49,13 +49,6 @@ Before any change is made to pub, all tests should pass. To run a pub test, run:
 To run all tests at once, run:
 
     pub run test
-
-Some pub tests require specific versions of other packages. These packages are
-included in the repository as [Git submodules][]. To get them, run:
-
-[Git submodules]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
-
-    git submodule update --init
 
 Changes to pub should be accompanied by one or more tests that exercise the new
 functionality. When adding a test, the best strategy is to find a similar test

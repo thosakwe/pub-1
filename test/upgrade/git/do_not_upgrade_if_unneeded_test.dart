@@ -11,7 +11,7 @@ main() {
   test(
       "doesn't upgrade one locked Git package's dependencies if it's "
       "not necessary", () async {
-    await ensureGit();
+    ensureGit();
 
     await d.git('foo.git', [
       d.libDir('foo'),
@@ -27,14 +27,20 @@ main() {
       "foo": {"git": "../foo.git"}
     }).create();
 
-    // TODO(rnystrom): Remove "--packages-dir" and validate using the
-    // ".packages" file instead of looking in the "packages" directory.
-    await pubGet(args: ["--packages-dir"]);
+    await pubGet();
 
-    await d.dir(packagesPath, [
-      d.dir('foo', [d.file('foo.dart', 'main() => "foo";')]),
-      d.dir('foo_dep', [d.file('foo_dep.dart', 'main() => "foo_dep";')])
+    await d.dir(cachePath, [
+      d.dir('git', [
+        d.dir('cache', [
+          d.gitPackageRepoCacheDir('foo'),
+          d.gitPackageRepoCacheDir('foo_dep')
+        ]),
+        d.gitPackageRevisionCacheDir('foo'),
+        d.gitPackageRevisionCacheDir('foo_dep'),
+      ])
     ]).validate();
+
+    var originalFooDepSpec = packageSpecLine('foo_dep');
 
     await d.git('foo.git', [
       d.libDir('foo', 'foo 2'),
@@ -48,13 +54,14 @@ main() {
       d.libPubspec('foo_dep', '1.0.0')
     ]).commit();
 
-    // TODO(rnystrom): Remove "--packages-dir" and validate using the
-    // ".packages" file instead of looking in the "packages" directory.
-    await pubUpgrade(args: ["--packages-dir", 'foo']);
+    await pubUpgrade(args: ['foo']);
 
-    await d.dir(packagesPath, [
-      d.dir('foo', [d.file('foo.dart', 'main() => "foo 2";')]),
-      d.dir('foo_dep', [d.file('foo_dep.dart', 'main() => "foo_dep";')]),
+    await d.dir(cachePath, [
+      d.dir('git', [
+        d.gitPackageRevisionCacheDir('foo', 2),
+      ])
     ]).validate();
+
+    expect(packageSpecLine('foo_dep'), originalFooDepSpec);
   });
 }

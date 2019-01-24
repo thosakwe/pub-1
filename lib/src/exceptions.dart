@@ -5,12 +5,12 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import "package:analyzer/analyzer.dart";
 import 'package:args/command_runner.dart';
 import "package:http/http.dart" as http;
 import "package:stack_trace/stack_trace.dart";
 import "package:yaml/yaml.dart";
 
+import 'dart.dart';
 import 'sdk.dart';
 
 /// An exception class for exceptions that are intended to be seen by the user.
@@ -47,7 +47,7 @@ class WrappedException extends ApplicationException {
   final Chain innerChain;
 
   WrappedException(String message, this.innerError, [StackTrace innerTrace])
-      : innerChain = innerTrace == null ? null : new Chain.forTrace(innerTrace),
+      : innerChain = innerTrace == null ? null : Chain.forTrace(innerTrace),
         super(message);
 }
 
@@ -62,9 +62,16 @@ class SilentException extends WrappedException {
 
 /// A class for errors in a command's input data.
 ///
-/// This corresponds to the [exit_codes.DATA] exit code.
+/// This corresponds to the `data` exit code.
 class DataException extends ApplicationException {
   DataException(String message) : super(message);
+}
+
+/// An exception indicating that the users configuration is invalid.
+///
+/// This corresponds to the `config` exit code;
+class ConfigException extends ApplicationException {
+  ConfigException(String message) : super(message);
 }
 
 /// An class for exceptions where a package could not be found in a [Source].
@@ -90,7 +97,6 @@ bool isUserFacingException(error) {
   // TODO(nweiz): unify this list with _userFacingExceptions when issue 5897 is
   // fixed.
   return error is ApplicationException ||
-      error is AnalyzerError ||
       error is AnalyzerErrorGroup ||
       error is IsolateSpawnException ||
       error is IOException ||

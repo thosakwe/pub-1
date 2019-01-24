@@ -21,7 +21,7 @@ class LishCommand extends PubCommand {
   String get name => "publish";
   String get description => "Publish the current package to pub.dartlang.org.";
   String get invocation => "pub publish [options]";
-  String get docUrl => "http://dartlang.org/tools/pub/cmd/pub-lish.html";
+  String get docUrl => "https://www.dartlang.org/tools/pub/cmd/pub-lish";
   List<String> get aliases => const ["lish", "lush"];
   bool get takesArguments => false;
 
@@ -57,7 +57,6 @@ class LishCommand extends PubCommand {
         negatable: false,
         help: 'Publish without confirmation if there are no errors.');
     argParser.addOption('server',
-        defaultsTo: cache.sources.hosted.defaultUrl,
         help: 'The package server to which to upload this package.');
   }
 
@@ -69,13 +68,13 @@ class LishCommand extends PubCommand {
           // TODO(nweiz): Cloud Storage can provide an XML-formatted error. We
           // should report that error and exit.
           var newUri = server.resolve("/api/packages/versions/new");
-          var response = await client.get(newUri, headers: PUB_API_HEADERS);
+          var response = await client.get(newUri, headers: pubApiHeaders);
           var parameters = parseJsonResponse(response);
 
           var url = _expectField(parameters, 'url', response);
           if (url is! String) invalidServerResponse(response);
           cloudStorageUrl = Uri.parse(url);
-          var request = new http.MultipartRequest('POST', cloudStorageUrl);
+          var request = http.MultipartRequest('POST', cloudStorageUrl);
 
           var fields = _expectField(parameters, 'fields', response);
           if (fields is! Map) invalidServerResponse(response);
@@ -85,16 +84,14 @@ class LishCommand extends PubCommand {
           });
 
           request.followRedirects = false;
-          request.files.add(new http.MultipartFile.fromBytes(
-              'file', packageBytes,
+          request.files.add(http.MultipartFile.fromBytes('file', packageBytes,
               filename: 'package.tar.gz'));
           var postResponse =
               await http.Response.fromStream(await client.send(request));
 
           var location = postResponse.headers['location'];
-          if (location == null) throw new PubHttpException(postResponse);
-          handleJsonSuccess(
-              await client.get(location, headers: PUB_API_HEADERS));
+          if (location == null) throw PubHttpException(postResponse);
+          handleJsonSuccess(await client.get(location, headers: pubApiHeaders));
         });
       });
     } on PubHttpException catch (error) {

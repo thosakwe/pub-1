@@ -8,16 +8,16 @@ import '../descriptor.dart' as d;
 import '../test_pub.dart';
 
 main() {
-  test('runs the script in checked mode with "--checked"', () async {
+  test('runs the script with assertions enabled', () async {
     await d.dir(appPath, [
       d.appPubspec(),
-      d.dir("bin", [d.file("script.dart", "main() { int a = true; }")])
+      d.dir('bin', [d.file('script.dart', 'main() { assert(false); }')])
     ]).create();
 
     await pubGet();
     await runPub(
-        args: ["run", "--checked", "bin/script"],
-        error: contains("'bool' is not a subtype of type 'int' of 'a'"),
+        args: ['run', '--enable-asserts', 'bin/script'],
+        error: contains('Failed assertion'),
         exitCode: 255);
   });
 }

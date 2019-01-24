@@ -13,7 +13,7 @@ import '../test_pub.dart';
 import 'utils.dart';
 
 Validator strictDeps(Entrypoint entrypoint) =>
-    new StrictDependenciesValidator(entrypoint);
+    StrictDependenciesValidator(entrypoint);
 
 main() {
   group('should consider a package valid if it', () {
@@ -76,7 +76,7 @@ main() {
         for (var devDir in ['benchmark', 'example', 'test', 'tool']) {
           test(
               'declares an "$port" as a '
-              '${isDev ? 'dev ': ''}dependency in $devDir/', () async {
+              '${isDev ? 'dev ' : ''}dependency in $devDir/', () async {
             await d.dir(appPath, [
               d.libPubspec("test_pkg", "1.0.0",
                   deps: deps, devDeps: devDeps, sdk: ">=1.8.0 <2.0.0"),

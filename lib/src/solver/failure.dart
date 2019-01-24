@@ -41,7 +41,7 @@ class SolveFailure implements ApplicationException {
 
   /// Describes how [incompatibility] was derived, and thus why version solving
   /// failed.
-  String toString() => new _Writer(incompatibility).write();
+  String toString() => _Writer(incompatibility).write();
 }
 
 /// A class that writes a human-readable description of the cause of a
@@ -91,13 +91,13 @@ class _Writer {
   }
 
   String write() {
-    var buffer = new StringBuffer();
+    var buffer = StringBuffer();
 
     // SDKs whose version constraints weren't matched.
-    var sdkConstraintCauses = new Set<Sdk>();
+    var sdkConstraintCauses = Set<Sdk>();
 
     // SDKs implicated in any way in the solve failure.
-    var sdkCauses = new Set<Sdk>();
+    var sdkCauses = Set<Sdk>();
 
     for (var incompatibility in _root.externalIncompatibilities) {
       var cause = incompatibility.cause;
@@ -148,7 +148,7 @@ class _Writer {
 
       var number = line.last;
       if (number != null) {
-        message = "(${number})".padRight(padding) + message;
+        message = "($number)".padRight(padding) + message;
       } else {
         message = " " * padding + message;
       }
@@ -176,13 +176,13 @@ class _Writer {
   /// [incompatibility] and [message] so that the message can be easily referred
   /// to later.
   void _write(Incompatibility incompatibility, String message,
-      {bool numbered: false}) {
+      {bool numbered = false}) {
     if (numbered) {
       var number = _lineNumbers.length + 1;
       _lineNumbers[incompatibility] = number;
-      _lines.add(new Pair(message, number));
+      _lines.add(Pair(message, number));
     } else {
-      _lines.add(new Pair(message, null));
+      _lines.add(Pair(message, null));
     }
   }
 
@@ -196,7 +196,7 @@ class _Writer {
   /// be written for each package when converting [incompatibility] to a string.
   void _visit(Incompatibility incompatibility,
       Map<String, PackageDetail> detailsForIncompatibility,
-      {bool conclusion: false}) {
+      {bool conclusion = false}) {
     // Add explicit numbers for incompatibilities that are written far away
     // from their successors or that are used for multiple derivations.
     var numbered = conclusion || _derivations[incompatibility] > 1;
@@ -250,7 +250,7 @@ class _Writer {
               numbered: numbered);
         } else {
           _visit(cause.conflict, {}, conclusion: true);
-          _lines.add(new Pair("", null));
+          _lines.add(Pair("", null));
 
           _visit(cause.other, detailsForCause);
           _write(

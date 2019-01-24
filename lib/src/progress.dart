@@ -14,7 +14,7 @@ class Progress {
   Timer _timer;
 
   /// The [Stopwatch] used to track how long a progress log has been running.
-  final _stopwatch = new Stopwatch();
+  final _stopwatch = Stopwatch();
 
   /// The progress message as it's being incrementally appended.
   ///
@@ -31,7 +31,7 @@ class Progress {
   ///
   /// If [fine] is passed, this will log progress messages on [log.Level.FINE]
   /// as opposed to [log.Level.MESSAGE].
-  Progress(this._message, {bool fine: false}) {
+  Progress(this._message, {bool fine = false}) {
     _stopwatch.start();
 
     var level = fine ? log.Level.FINE : log.Level.MESSAGE;
@@ -50,7 +50,7 @@ class Progress {
       return;
     }
 
-    _timer = new Timer.periodic(new Duration(milliseconds: 100), (_) {
+    _timer = Timer.periodic(Duration(milliseconds: 100), (_) {
       _update();
     });
 

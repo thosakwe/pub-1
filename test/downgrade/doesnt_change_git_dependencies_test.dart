@@ -9,7 +9,7 @@ import '../test_pub.dart';
 
 main() {
   test("doesn't change git dependencies", () async {
-    await ensureGit();
+    ensureGit();
 
     await d.git(
         'foo.git', [d.libDir('foo'), d.libPubspec('foo', '1.0.0')]).create();
@@ -18,23 +18,15 @@ main() {
       "foo": {"git": "../foo.git"}
     }).create();
 
-    // TODO(rnystrom): Remove "--packages-dir" and validate using the
-    // ".packages" file instead of looking in the "packages" directory.
-    await pubGet(args: ["--packages-dir"]);
+    await pubGet();
 
-    await d.dir(packagesPath, [
-      d.dir('foo', [d.file('foo.dart', 'main() => "foo";')])
-    ]).validate();
+    var originalFooSpec = packageSpecLine('foo');
 
     await d.git('foo.git',
         [d.libDir('foo', 'foo 2'), d.libPubspec('foo', '1.0.0')]).commit();
 
-    // TODO(rnystrom): Remove "--packages-dir" and validate using the
-    // ".packages" file instead of looking in the "packages" directory.
-    await pubDowngrade(args: ["--packages-dir"]);
+    await pubDowngrade();
 
-    await d.dir(packagesPath, [
-      d.dir('foo', [d.file('foo.dart', 'main() => "foo";')])
-    ]).validate();
+    expect(packageSpecLine('foo'), originalFooSpec);
   });
 }

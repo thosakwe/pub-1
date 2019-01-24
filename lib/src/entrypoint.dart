@@ -42,7 +42,7 @@ final _sdkConstraint = () {
   //   dart: ">=1.2.3 <2.0.0"
   // ```
   var sdkNames = sdks.keys.map((name) => "  " + name).join('|');
-  return new RegExp(r'^(' + sdkNames + r'|sdk): "?([^"]*)"?$', multiLine: true);
+  return RegExp(r'^(' + sdkNames + r'|sdk): "?([^"]*)"?$', multiLine: true);
 }();
 
 /// The context surrounding the root package pub is operating on.
@@ -74,6 +74,9 @@ class Entrypoint {
   /// real directory on disk.
   final bool _inMemory;
 
+  /// Whether this entrypoint exists within the package cache.
+  bool get isCached => root.dir != null && p.isWithin(cache.rootDir, root.dir);
+
   /// Whether this is an entrypoint for a globally-activated package.
   final bool isGlobal;
 
@@ -84,9 +87,9 @@ class Entrypoint {
     if (_lockFile != null) return _lockFile;
 
     if (!fileExists(lockFilePath)) {
-      _lockFile = new LockFile.empty();
+      _lockFile = LockFile.empty();
     } else {
-      _lockFile = new LockFile.load(lockFilePath, cache.sources);
+      _lockFile = LockFile.load(lockFilePath, cache.sources);
     }
 
     return _lockFile;
@@ -103,13 +106,11 @@ class Entrypoint {
     if (_packageGraph != null) return _packageGraph;
 
     assertUpToDate();
-    var packages = new Map<String, Package>.fromIterable(
-        lockFile.packages.values,
-        key: (id) => id.name,
-        value: (id) => cache.load(id));
+    var packages = Map<String, Package>.fromIterable(lockFile.packages.values,
+        key: (id) => id.name, value: (id) => cache.load(id));
     packages[root.name] = root;
 
-    _packageGraph = new PackageGraph(this, lockFile, packages);
+    _packageGraph = PackageGraph(this, lockFile, packages);
     return _packageGraph;
   }
 
@@ -138,27 +139,38 @@ class Entrypoint {
     return newPath;
   }
 
+  /// Returns the contents of the `.packages` file for this entrypoint.
+  ///
+  /// This is based on the package's lockfile, so it works whether or not a
+  /// `.packages` file has been written.
+  String get packagesFileContents => lockFile.packagesFile(cache, root.name);
+
   /// The path to the directory containing dependency executable snapshots.
   String get _snapshotPath => p.join(cachePath, 'bin');
 
+  /// Loads the entrypoint for the package at the current directory.
+  Entrypoint.current(this.cache)
+      : root = Package.load(null, '.', cache.sources, isRootPackage: true),
+        _inMemory = false,
+        isGlobal = false;
+
   /// Loads the entrypoint from a package at [rootDir].
-  Entrypoint(String rootDir, SystemCache cache, {this.isGlobal: false})
-      : root =
-            new Package.load(null, rootDir, cache.sources, isRootPackage: true),
-        cache = cache,
-        _inMemory = false;
+  Entrypoint(String rootDir, this.cache)
+      : root = Package.load(null, rootDir, cache.sources, isRootPackage: true),
+        _inMemory = false,
+        isGlobal = true;
 
   /// Creates an entrypoint given package and lockfile objects.
-  Entrypoint.inMemory(this.root, this._lockFile, this.cache,
-      {this.isGlobal: false})
-      : _inMemory = true;
+  Entrypoint.inMemory(this.root, this._lockFile, this.cache)
+      : _inMemory = true,
+        isGlobal = true;
 
   /// Creates an entrypoint given a package and a [solveResult], from which the
   /// package graph and lockfile will be computed.
-  Entrypoint.fromSolveResult(this.root, this.cache, SolveResult solveResult,
-      {this.isGlobal: false})
-      : _inMemory = true {
-    _packageGraph = new PackageGraph.fromSolveResult(this, solveResult);
+  Entrypoint.fromSolveResult(this.root, this.cache, SolveResult solveResult)
+      : _inMemory = true,
+        isGlobal = true {
+    _packageGraph = PackageGraph.fromSolveResult(this, solveResult);
     _lockFile = _packageGraph.lockFile;
   }
 
@@ -180,16 +192,11 @@ class Entrypoint {
   /// If [precompile] is `true` (the default), this snapshots dependencies'
   /// executables.
   ///
-  /// If [packagesDir] is `true`, this will create "packages" directory with
-  /// symlinks to the installed packages. This directory will be symlinked into
-  /// any directory that might contain an entrypoint.
-  ///
   /// Updates [lockFile] and [packageRoot] accordingly.
   Future acquireDependencies(SolveType type,
       {List<String> useLatest,
-      bool dryRun: false,
-      bool precompile: true,
-      bool packagesDir: false}) async {
+      bool dryRun = false,
+      bool precompile = true}) async {
     var result = await resolveVersions(type, cache, root,
         lockFile: lockFile, useLatest: useLatest);
 
@@ -204,7 +211,7 @@ class Entrypoint {
       if (overriddenPackages.isNotEmpty) {
         log.message(log.yellow(
             'Overriding the upper bound Dart SDK constraint to <=${sdk.version} '
-            'for the following packages:\n\n${overriddenPackages}\n\n'
+            'for the following packages:\n\n$overriddenPackages\n\n'
             'To disable this you can set the PUB_ALLOW_PRERELEASE_SDK system '
             'environment variable to `false`, or you can silence this message '
             'by setting it to `quiet`.'));
@@ -218,27 +225,16 @@ class Entrypoint {
       return;
     }
 
-    // Install the packages and maybe link them into the entrypoint.
-    if (packagesDir) {
-      cleanDir(packagesPath);
-    } else {
-      deleteEntry(packagesPath);
-    }
-
-    await Future
-        .wait(result.packages.map((id) => _get(id, packagesDir: packagesDir)));
+    await Future.wait(result.packages.map(_get));
     _saveLockFile(result);
-
-    if (packagesDir) _linkSelf();
-    _linkOrDeleteSecondaryPackageDirs(packagesDir: packagesDir);
 
     result.summarizeChanges(type, dryRun: dryRun);
 
     /// Build a package graph from the version solver results so we don't
     /// have to reload and reparse all the pubspecs.
-    _packageGraph = new PackageGraph.fromSolveResult(this, result);
+    _packageGraph = PackageGraph.fromSolveResult(this, result);
 
-    writeTextFile(packagesFile, lockFile.packagesFile(cache, root.name));
+    writeTextFile(packagesFile, packagesFileContents);
 
     try {
       if (precompile) {
@@ -287,7 +283,8 @@ class Entrypoint {
       cleanDir(dir);
       return waitAndPrintErrors(executables[package].map((path) {
         var url = p.toUri(p.join(packageGraph.packages[package].dir, path));
-        return dart.snapshot(url, p.join(dir, p.basename(path) + '.snapshot'),
+        return dart.snapshot(
+            url, p.join(dir, p.basename(path) + '.snapshot.dart2'),
             packagesFile: p.toUri(packagesFile),
             name: '$package:${p.basenameWithoutExtension(path)}');
       }));
@@ -350,8 +347,11 @@ class Entrypoint {
     // executable will save us a few IO operations over checking each one. If
     // some executables do exist and some do not, the directory is corrupted and
     // it's good to start from scratch anyway.
-    var executablesExist = executables.every((executable) => fileExists(p.join(
-        _snapshotPath, packageName, "${p.basename(executable)}.snapshot")));
+    var executablesExist = executables.every((executable) {
+      var snapshotPath = p.join(_snapshotPath, packageName,
+          "${p.basename(executable)}.snapshot.dart2");
+      return fileExists(snapshotPath);
+    });
     if (!executablesExist) return executables;
 
     // Otherwise, we don't need to recompile.
@@ -363,19 +363,12 @@ class Entrypoint {
   /// This automatically downloads the package to the system-wide cache as well
   /// if it requires network access to retrieve (specifically, if the package's
   /// source is a [CachedSource]).
-  Future _get(PackageId id, {bool packagesDir: false}) {
+  Future _get(PackageId id) {
     return http.withDependencyType(root.dependencyType(id.name), () async {
       if (id.isRoot) return;
 
       var source = cache.source(id.source);
-      if (!packagesDir) {
-        if (source is CachedSource) await source.downloadToSystemCache(id);
-        return;
-      }
-
-      var packagePath = p.join(packagesPath, id.name);
-      if (entryExists(packagePath)) deleteEntry(packagePath);
-      await source.get(id, packagePath);
+      if (source is CachedSource) await source.downloadToSystemCache(id);
     });
   }
 
@@ -397,8 +390,8 @@ class Entrypoint {
     var lockFileText = readTextFile(lockFilePath);
     var hasPathDependencies = lockFileText.contains("\n    source: path\n");
 
-    var pubspecModified = new File(pubspecPath).lastModifiedSync();
-    var lockFileModified = new File(lockFilePath).lastModifiedSync();
+    var pubspecModified = File(pubspecPath).lastModifiedSync();
+    var lockFileModified = File(lockFilePath).lastModifiedSync();
 
     var touchedLockFile = false;
     if (lockFileModified.isBefore(pubspecModified) || hasPathDependencies) {
@@ -412,7 +405,7 @@ class Entrypoint {
       }
     }
 
-    var packagesModified = new File(packagesFile).lastModifiedSync();
+    var packagesModified = File(packagesFile).lastModifiedSync();
     if (packagesModified.isBefore(lockFileModified)) {
       if (_isPackagesFileUpToDate()) {
         touch(packagesFile);
@@ -434,7 +427,7 @@ class Entrypoint {
       // able to `pub run` non-Flutter tools even in a Flutter app.
       if (!sdk.isAvailable) continue;
 
-      var parsedConstraint = new VersionConstraint.parse(match[2]);
+      var parsedConstraint = VersionConstraint.parse(match[2]);
       if (!parsedConstraint.allows(sdk.version)) {
         dataError("${sdk.name} ${sdk.version} is incompatible with your "
             "dependencies' SDK constraints. Please run \"pub get\" again.");
@@ -454,7 +447,7 @@ class Entrypoint {
           'file was generated, please run "pub get" again.');
     }
 
-    var overrides = new MapKeySet(root.dependencyOverrides);
+    var overrides = MapKeySet(root.dependencyOverrides);
 
     // Check that uncached dependencies' pubspecs are also still satisfied,
     // since they're mutable and may have changed since the last get.
@@ -511,7 +504,7 @@ class Entrypoint {
   /// not in the lockfile or that don't match what's in there.
   bool _isPackagesFileUpToDate() {
     var packages = packages_file.parse(
-        new File(packagesFile).readAsBytesSync(), p.toUri(packagesFile));
+        File(packagesFile).readAsBytesSync(), p.toUri(packagesFile));
 
     return lockFile.packages.values.every((lockFileId) {
       // It's very unlikely that the lockfile is invalid here, but it's not
@@ -555,75 +548,6 @@ class Entrypoint {
     _lockFile = result.lockFile;
     var lockFilePath = root.path('pubspec.lock');
     writeTextFile(lockFilePath, _lockFile.serialize(root.dir));
-  }
-
-  /// Creates a self-referential symlink in the `packages` directory that allows
-  /// a package to import its own files using `package:`.
-  void _linkSelf() {
-    var linkPath = p.join(packagesPath, root.name);
-    // Create the symlink if it doesn't exist.
-    if (entryExists(linkPath)) return;
-    ensureDir(packagesPath);
-    createPackageSymlink(root.name, root.dir, linkPath,
-        isSelfLink: true, relative: true);
-  }
-
-  /// If [packagesDir] is true, add "packages" directories to the whitelist of
-  /// directories that may contain Dart entrypoints.
-  ///
-  /// Otherwise, delete any "packages" directories in the whitelist of
-  /// directories that may contain Dart entrypoints.
-  void _linkOrDeleteSecondaryPackageDirs({bool packagesDir: false}) {
-    // Only the main "bin" directory gets a "packages" directory, not its
-    // subdirectories.
-    var binDir = root.path('bin');
-    if (dirExists(binDir)) {
-      _linkOrDeleteSecondaryPackageDir(binDir, packagesDir: packagesDir);
-    }
-
-    // The others get "packages" directories in subdirectories too.
-    for (var dir in ['benchmark', 'example', 'test', 'tool', 'web']) {
-      _linkOrDeleteSecondaryPackageDirsRecursively(root.path(dir),
-          packagesDir: packagesDir);
-    }
-  }
-
-  /// If [packagesDir] is true, creates a symlink to the "packages" directory in
-  /// [dir] and all its subdirectories.
-  ///
-  /// Otherwise, deletes any "packages" directories in [dir] and all its
-  /// subdirectories.
-  void _linkOrDeleteSecondaryPackageDirsRecursively(String dir,
-      {bool packagesDir: false}) {
-    if (!dirExists(dir)) return;
-    _linkOrDeleteSecondaryPackageDir(dir, packagesDir: packagesDir);
-    for (var subdir in _listDirWithoutPackages(dir)) {
-      if (!dirExists(subdir)) continue;
-      _linkOrDeleteSecondaryPackageDir(subdir, packagesDir: packagesDir);
-    }
-  }
-
-  // TODO(nweiz): roll this into [listDir] in io.dart once issue 4775 is fixed.
-  /// Recursively lists the contents of [dir], excluding hidden `.DS_Store`
-  /// files and `package` files.
-  Iterable<String> _listDirWithoutPackages(dir) {
-    return listDir(dir).expand<String>((file) {
-      if (p.basename(file) == 'packages') return [];
-      if (!dirExists(file)) return [];
-      var fileAndSubfiles = [file];
-      fileAndSubfiles.addAll(_listDirWithoutPackages(file));
-      return fileAndSubfiles;
-    });
-  }
-
-  /// If [packagesDir] is true, creates a symlink to the "packages" directory in
-  /// [dir].
-  ///
-  /// Otherwise, deletes a "packages" directories in [dir] if one exists.
-  void _linkOrDeleteSecondaryPackageDir(String dir, {bool packagesDir: false}) {
-    var symlink = p.join(dir, 'packages');
-    if (entryExists(symlink)) deleteEntry(symlink);
-    if (packagesDir) createSymlink(packagesPath, symlink, relative: true);
   }
 
   /// If the entrypoint uses the old-style `.pub` cache directory, migrates it

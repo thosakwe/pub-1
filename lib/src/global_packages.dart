@@ -137,7 +137,7 @@ class GlobalPackages {
   /// Otherwise, the previous ones will be preserved.
   Future activatePath(String path, List<String> executables,
       {bool overwriteBinStubs}) async {
-    var entrypoint = new Entrypoint(path, cache, isGlobal: true);
+    var entrypoint = Entrypoint(path, cache);
 
     // Get the package's dependencies.
     await entrypoint.acquireDependencies(SolveType.GET);
@@ -152,7 +152,7 @@ class GlobalPackages {
 
     // TODO(rnystrom): Look in "bin" and display list of binaries that
     // user can run.
-    _writeLockFile(name, new LockFile([id]));
+    _writeLockFile(name, LockFile([id]));
 
     var binDir = p.join(_directory, name, 'bin');
     if (dirExists(binDir)) deleteEntry(binDir);
@@ -166,7 +166,7 @@ class GlobalPackages {
   Future _installInCache(PackageRange dep, List<String> executables,
       {bool overwriteBinStubs}) async {
     // Create a dummy package with just [dep] so we can do resolution on it.
-    var root = new Package.inMemory(new Pubspec("pub global activate",
+    var root = Package.inMemory(Pubspec("pub global activate",
         dependencies: [dep], sources: cache.sources));
 
     // Resolve it and download its dependencies.
@@ -204,8 +204,7 @@ class GlobalPackages {
 
     // Load the package graph from [result] so we don't need to re-parse all
     // the pubspecs.
-    var entrypoint =
-        new Entrypoint.fromSolveResult(root, cache, result, isGlobal: true);
+    var entrypoint = Entrypoint.fromSolveResult(root, cache, result);
     var snapshots = await _precompileExecutables(entrypoint, dep.name);
 
     _updateBinStubs(entrypoint.packageGraph.packages[dep.name], executables,
@@ -226,6 +225,13 @@ class GlobalPackages {
       var binDir = p.join(_directory, packageName, 'bin');
       cleanDir(binDir);
 
+      var packagesFilePath = p.join(_directory, packageName, '.packages');
+      if (!fileExists(packagesFilePath)) {
+        // A .packages file may not already exist if the global executable has a
+        // 1.6-style lock file instead.
+        writeTextFile(packagesFilePath, entrypoint.packagesFileContents);
+      }
+
       // Try to avoid starting up an asset server to precompile packages if
       // possible. This is faster and produces better error messages.
       var package = entrypoint.packageGraph.packages[packageName];
@@ -233,7 +239,7 @@ class GlobalPackages {
       await waitAndPrintErrors(package.executablePaths.map((path) async {
         var url = p.toUri(p.join(package.dir, path));
         var basename = p.basename(path);
-        var snapshotPath = p.join(binDir, '$basename.snapshot');
+        var snapshotPath = p.join(binDir, '$basename.snapshot.dart2');
         await dart.snapshot(url, snapshotPath,
             packagesFile: p.toUri(_getPackagesFilePath(package.name)),
             name: '${package.name}:${p.url.basenameWithoutExtension(path)}');
@@ -259,14 +265,14 @@ class GlobalPackages {
   /// Shows the user the currently active package with [name], if any.
   void _describeActive(String name) {
     try {
-      var lockFile = new LockFile.load(_getLockFilePath(name), cache.sources);
+      var lockFile = LockFile.load(_getLockFilePath(name), cache.sources);
       var id = lockFile.packages[name];
 
       var source = id.source;
       if (source is GitSource) {
         var url = source.urlFromDescription(id.description);
         log.message('Package ${log.bold(name)} is currently active from Git '
-            'repository "${url}".');
+            'repository "$url".');
       } else if (source is PathSource) {
         var path = source.pathFromDescription(id.description);
         log.message('Package ${log.bold(name)} is currently active at path '
@@ -290,7 +296,7 @@ class GlobalPackages {
 
     _deleteBinStubs(name);
 
-    var lockFile = new LockFile.load(_getLockFilePath(name), cache.sources);
+    var lockFile = LockFile.load(_getLockFilePath(name), cache.sources);
     var id = lockFile.packages[name];
     log.message('Deactivated package ${_formatPackage(id)}.');
 
@@ -306,14 +312,14 @@ class GlobalPackages {
     var lockFilePath = _getLockFilePath(name);
     var lockFile;
     try {
-      lockFile = new LockFile.load(lockFilePath, cache.sources);
+      lockFile = LockFile.load(lockFilePath, cache.sources);
     } on IOException {
       var oldLockFilePath = p.join(_directory, '$name.lock');
       try {
         // TODO(nweiz): This looks for Dart 1.6's old lockfile location.
         // Remove it when Dart 1.6 is old enough that we don't think anyone
         // will have these lockfiles anymore (issue 20703).
-        lockFile = new LockFile.load(oldLockFilePath, cache.sources);
+        lockFile = LockFile.load(oldLockFilePath, cache.sources);
       } on IOException {
         // If we couldn't read the lock file, it's not activated.
         dataError("No active package ${log.bold(name)}.");
@@ -321,7 +327,7 @@ class GlobalPackages {
 
       // Move the old lockfile to its new location.
       ensureDir(p.dirname(lockFilePath));
-      new File(oldLockFilePath).renameSync(lockFilePath);
+      File(oldLockFilePath).renameSync(lockFilePath);
     }
 
     // Remove the package itself from the lockfile. We put it in there so we
@@ -335,14 +341,12 @@ class GlobalPackages {
     if (source is CachedSource) {
       // For cached sources, the package itself is in the cache and the
       // lockfile is the one we just loaded.
-      entrypoint = new Entrypoint.inMemory(cache.load(id), lockFile, cache,
-          isGlobal: true);
+      entrypoint = Entrypoint.inMemory(cache.load(id), lockFile, cache);
     } else {
       // For uncached sources (i.e. path), the ID just points to the real
       // directory for the package.
-      entrypoint = new Entrypoint(
-          (id.source as PathSource).pathFromDescription(id.description), cache,
-          isGlobal: true);
+      entrypoint = Entrypoint(
+          (id.source as PathSource).pathFromDescription(id.description), cache);
     }
 
     entrypoint.root.pubspec.sdkConstraints.forEach((sdkName, constraint) {
@@ -369,34 +373,24 @@ class GlobalPackages {
   /// recompiled if the SDK has been upgraded since it was first compiled and
   /// then run. Otherwise, it will be run from source.
   ///
-  /// If [checked] is true, the program is run in checked mode.
+  /// If [checked] is true, the program is run with assertions enabled.
   ///
   /// Returns the exit code from the executable.
   Future<int> runExecutable(
       String package, String executable, Iterable<String> args,
-      {bool checked: false}) {
-    var binDir = p.join(_directory, package, 'bin');
-    // Snapshots are compiled in Dart 1 mode, so in Dart 2 mode we always run
-    // executables from source.
-    if (isDart2 || !fileExists(p.join(binDir, '$executable.dart.snapshot'))) {
-      return exe.runExecutable(find(package), package, executable, args,
-          isGlobal: true, checked: checked, cache: cache);
-    }
-
-    // Unless the user overrides the verbosity, we want to filter out the
-    // normal pub output shown while loading the environment.
-    if (log.verbosity == log.Verbosity.NORMAL) {
-      log.verbosity = log.Verbosity.WARNING;
-    }
-
-    var snapshotPath = p.join(binDir, '$executable.dart.snapshot');
-    return exe.runSnapshot(snapshotPath, args, checked: checked,
-        recompile: () async {
-      log.fine("$package:$executable is out of date and needs to be "
-          "recompiled.");
-      await _precompileExecutables(
-          find(package).packageGraph.entrypoint, package);
-    });
+      {bool checked = false}) {
+    var entrypoint = find(package);
+    return exe.runExecutable(
+        entrypoint, package, p.join('bin', '$executable.dart'), args,
+        checked: checked,
+        packagesFile:
+            entrypoint.isCached ? _getPackagesFilePath(package) : null,
+        // Don't use snapshots for executables activated from paths.
+        snapshotPath: entrypoint.isCached
+            ? p.join(
+                _directory, package, 'bin', '$executable.dart.snapshot.dart2')
+            : null,
+        recompile: () => _precompileExecutables(entrypoint, package));
   }
 
   /// Gets the path to the lock file for an activated cached package with
@@ -427,11 +421,11 @@ class GlobalPackages {
     var name = p.basenameWithoutExtension(path);
     if (!fileExists(path)) path = p.join(path, 'pubspec.lock');
 
-    var id = new LockFile.load(p.join(_directory, path), cache.sources)
-        .packages[name];
+    var id =
+        LockFile.load(p.join(_directory, path), cache.sources).packages[name];
 
     if (id == null) {
-      throw new FormatException("Pubspec for activated package $name didn't "
+      throw FormatException("Pubspec for activated package $name didn't "
           "contain an entry for itself.");
     }
 
@@ -464,12 +458,12 @@ class GlobalPackages {
           var binstub = readTextFile(entry);
           var package = _binStubProperty(binstub, "Package");
           if (package == null) {
-            throw new ApplicationException("No 'Package' property.");
+            throw ApplicationException("No 'Package' property.");
           }
 
           var executable = _binStubProperty(binstub, "Executable");
           if (executable == null) {
-            throw new ApplicationException("No 'Executable' property.");
+            throw ApplicationException("No 'Executable' property.");
           }
 
           executables.putIfAbsent(package, () => []).add(executable);
@@ -496,8 +490,7 @@ class GlobalPackages {
 
           var entrypoint = find(id.name);
           var snapshots = await _precompileExecutables(entrypoint, id.name);
-          var packageExecutables = executables.remove(id.name);
-          if (packageExecutables == null) packageExecutables = [];
+          var packageExecutables = executables.remove(id.name) ?? [];
           _updateBinStubs(
               entrypoint.packageGraph.packages[id.name], packageExecutables,
               overwriteBinStubs: true,
@@ -521,13 +514,12 @@ class GlobalPackages {
     }
 
     if (executables.isNotEmpty) {
-      var message = new StringBuffer("Binstubs exist for non-activated "
+      var message = StringBuffer("Binstubs exist for non-activated "
           "packages:\n");
       executables.forEach((package, executableNames) {
-        // TODO(nweiz): Use a normal for loop here when
-        // https://github.com/dart-lang/async_await/issues/68 is fixed.
-        executableNames.forEach(
-            (executable) => deleteEntry(p.join(_binStubDir, executable)));
+        for (var executable in executableNames) {
+          deleteEntry(p.join(_binStubDir, executable));
+        }
 
         message.writeln("  From ${log.bold(package)}: "
             "${toSentence(executableNames)}");
@@ -535,7 +527,7 @@ class GlobalPackages {
       log.error(message);
     }
 
-    return new Pair(successes, failures);
+    return Pair(successes, failures);
   }
 
   /// Updates the binstubs for [package].
@@ -563,8 +555,8 @@ class GlobalPackages {
   void _updateBinStubs(Package package, List<String> executables,
       {bool overwriteBinStubs,
       Map<String, String> snapshots,
-      bool suggestIfNotOnPath: true}) {
-    if (snapshots == null) snapshots = const {};
+      bool suggestIfNotOnPath = true}) {
+    snapshots ??= const {};
 
     // Remove any previously activated binstubs for this package, in case the
     // list of executables has changed.
@@ -695,8 +687,8 @@ class GlobalPackages {
 rem This file was created by pub v${sdk.version}.
 rem Package: ${package.name}
 rem Version: ${package.version}
-rem Executable: ${executable}
-rem Script: ${script}
+rem Executable: $executable
+rem Script: $script
 $invocation %*
 """;
 
@@ -720,8 +712,8 @@ pub global run ${package.name}:$script %*
 # This file was created by pub v${sdk.version}.
 # Package: ${package.name}
 # Version: ${package.version}
-# Executable: ${executable}
-# Script: ${script}
+# Executable: $executable
+# Script: $script
 $invocation "\$@"
 """;
 
@@ -809,8 +801,8 @@ pub global run ${package.name}:$script "\$@"
 
       var binDir = _binStubDir;
       if (binDir.startsWith(Platform.environment['HOME'])) {
-        binDir =
-            p.join("~", p.relative(binDir, from: Platform.environment['HOME']));
+        binDir = p.join(
+            r'$HOME', p.relative(binDir, from: Platform.environment['HOME']));
       }
 
       log.warning("${log.yellow('Warning:')} Pub installs executables into "
@@ -826,7 +818,7 @@ pub global run ${package.name}:$script "\$@"
   /// Returns the value of the property named [name] in the bin stub script
   /// [source].
   String _binStubProperty(String source, String name) {
-    var pattern = new RegExp(quoteRegExp(name) + r": ([a-zA-Z0-9_-]+)");
+    var pattern = RegExp(quoteRegExp(name) + r": ([a-zA-Z0-9_-]+)");
     var match = pattern.firstMatch(source);
     return match == null ? null : match[1];
   }

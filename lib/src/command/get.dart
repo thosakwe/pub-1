@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import '../command.dart';
+import '../log.dart' as log;
 import '../solver.dart';
 
 /// Handles the `get` pub command.
@@ -12,7 +13,7 @@ class GetCommand extends PubCommand {
   String get name => "get";
   String get description => "Get the current package's dependencies.";
   String get invocation => "pub get";
-  String get docUrl => "http://dartlang.org/tools/pub/cmd/pub-get.html";
+  String get docUrl => "https://www.dartlang.org/tools/pub/cmd/pub-get";
   List<String> get aliases => const ["install"];
   bool get isOffline => argResults["offline"];
 
@@ -29,15 +30,15 @@ class GetCommand extends PubCommand {
         defaultsTo: true,
         help: "Precompile executables and transformed dependencies.");
 
-    argParser.addFlag('packages-dir',
-        negatable: true,
-        help: "Generate a packages/ directory when installing packages.");
+    argParser.addFlag('packages-dir', negatable: true, hide: true);
   }
 
   Future run() {
+    if (argResults.wasParsed('packages-dir')) {
+      log.warning(log.yellow(
+          'The --packages-dir flag is no longer used and does nothing.'));
+    }
     return entrypoint.acquireDependencies(SolveType.GET,
-        dryRun: argResults['dry-run'],
-        precompile: argResults['precompile'],
-        packagesDir: argResults['packages-dir']);
+        dryRun: argResults['dry-run'], precompile: argResults['precompile']);
   }
 }

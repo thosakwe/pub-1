@@ -13,14 +13,12 @@ void handleUploadForm(ShelfTestServer server, [Map body]) {
     expect(
         request.headers, containsPair('authorization', 'Bearer access token'));
 
-    if (body == null) {
-      body = {
-        'url': server.url.resolve('/upload').toString(),
-        'fields': {'field1': 'value1', 'field2': 'value2'}
-      };
-    }
+    body ??= {
+      'url': server.url.resolve('/upload').toString(),
+      'fields': {'field1': 'value1', 'field2': 'value2'}
+    };
 
-    return new shelf.Response.ok(jsonEncode(body),
+    return shelf.Response.ok(jsonEncode(body),
         headers: {'content-type': 'application/json'});
   });
 }
@@ -33,6 +31,6 @@ void handleUpload(ShelfTestServer server) {
         .read()
         .drain()
         .then((_) => server.url)
-        .then((url) => new shelf.Response.found(url.resolve('/create')));
+        .then((url) => shelf.Response.found(url.resolve('/create')));
   });
 }

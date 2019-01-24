@@ -15,19 +15,17 @@ import 'package:pub/src/exit_codes.dart' as exit_codes;
 import 'descriptor.dart' as d;
 import 'test_pub.dart';
 
-final USAGE_STRING = '''
+final _usageString = '''
 Manage uploaders for a package on pub.dartlang.org.
 
 Usage: pub uploader [options] {add/remove} <email>
 -h, --help       Print this usage information.
     --server     The package server on which the package is hosted.
-                 (defaults to "https://pub.dartlang.org")
-
     --package    The package whose uploaders will be modified.
                  (defaults to the current package)
 
 Run "pub help" to see global options.
-See http://dartlang.org/tools/pub/cmd/pub-uploader.html for detailed documentation.
+See https://www.dartlang.org/tools/pub/cmd/pub-uploader for detailed documentation.
 ''';
 
 Future<TestProcess> startPubUploader(
@@ -41,20 +39,20 @@ main() {
   group('displays usage', () {
     test('when run with no arguments', () {
       return runPub(
-          args: ['uploader'], output: USAGE_STRING, exitCode: exit_codes.USAGE);
+          args: ['uploader'], output: _usageString, exitCode: exit_codes.USAGE);
     });
 
     test('when run with only a command', () {
       return runPub(
           args: ['uploader', 'add'],
-          output: USAGE_STRING,
+          output: _usageString,
           exitCode: exit_codes.USAGE);
     });
 
     test('when run with an invalid command', () {
       return runPub(
           args: ['uploader', 'foo', 'email'],
-          output: USAGE_STRING,
+          output: _usageString,
           exitCode: exit_codes.USAGE);
     });
   });
@@ -69,7 +67,7 @@ main() {
       return request.readAsString().then((body) {
         expect(body, equals('email=email'));
 
-        return new shelf.Response.ok(
+        return shelf.Response.ok(
             jsonEncode({
               'success': {'message': 'Good job!'}
             }),
@@ -89,7 +87,7 @@ main() {
 
     server.handler.expect('DELETE', '/api/packages/pkg/uploaders/email',
         (request) {
-      return new shelf.Response.ok(
+      return shelf.Response.ok(
           jsonEncode({
             'success': {'message': 'Good job!'}
           }),
@@ -109,7 +107,7 @@ main() {
 
     server.handler.expect('POST', '/api/packages/test_pkg/uploaders',
         (request) {
-      return new shelf.Response.ok(
+      return shelf.Response.ok(
           jsonEncode({
             'success': {'message': 'Good job!'}
           }),
@@ -127,7 +125,7 @@ main() {
         await startPubUploader(server, ['--package', 'pkg', 'add', 'email']);
 
     server.handler.expect('POST', '/api/packages/pkg/uploaders', (request) {
-      return new shelf.Response(400,
+      return shelf.Response(400,
           body: jsonEncode({
             'error': {'message': 'Bad job!'}
           }),
@@ -146,7 +144,7 @@ main() {
 
     server.handler.expect('DELETE', '/api/packages/pkg/uploaders/e%2Fmail',
         (request) {
-      return new shelf.Response(400,
+      return shelf.Response(400,
           body: jsonEncode({
             'error': {'message': 'Bad job!'}
           }),
@@ -164,7 +162,7 @@ main() {
         await startPubUploader(server, ['--package', 'pkg', 'add', 'email']);
 
     server.handler.expect('POST', '/api/packages/pkg/uploaders',
-        (request) => new shelf.Response.ok("{not json"));
+        (request) => shelf.Response.ok("{not json"));
 
     expect(
         pub.stderr,
@@ -180,7 +178,7 @@ main() {
         await startPubUploader(server, ['--package', 'pkg', 'remove', 'email']);
 
     server.handler.expect('DELETE', '/api/packages/pkg/uploaders/email',
-        (request) => new shelf.Response.ok("{not json"));
+        (request) => shelf.Response.ok("{not json"));
 
     expect(
         pub.stderr,

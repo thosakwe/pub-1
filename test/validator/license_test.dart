@@ -14,7 +14,7 @@ import '../descriptor.dart' as d;
 import '../test_pub.dart';
 import 'utils.dart';
 
-Validator license(Entrypoint entrypoint) => new LicenseValidator(entrypoint);
+Validator license(Entrypoint entrypoint) => LicenseValidator(entrypoint);
 
 main() {
   group('should consider a package valid if it', () {
@@ -57,7 +57,7 @@ main() {
     test('has a prefixed UNLICENSE file', () async {
       await d.validPackage.create();
       deleteEntry(path.join(d.sandbox, appPath, 'LICENSE'));
-      d.file(path.join(appPath, 'MIT_UNLICENSE'), '').create();
+      await d.file(path.join(appPath, 'MIT_UNLICENSE'), '').create();
       expectValidationError(license);
     });
 

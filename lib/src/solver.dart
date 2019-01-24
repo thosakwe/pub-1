@@ -7,10 +7,10 @@ import 'dart:async';
 import 'lock_file.dart';
 import 'log.dart' as log;
 import 'package.dart';
-import 'system_cache.dart';
 import 'solver/result.dart';
 import 'solver/type.dart';
 import 'solver/version_solver.dart';
+import 'system_cache.dart';
 
 export 'solver/failure.dart';
 export 'solver/result.dart';
@@ -30,8 +30,8 @@ Future<SolveResult> resolveVersions(
     SolveType type, SystemCache cache, Package root,
     {LockFile lockFile, Iterable<String> useLatest}) {
   return log.progress('Resolving dependencies', () {
-    return new VersionSolver(type, cache, root,
-            lockFile ?? new LockFile.empty(), useLatest ?? const [])
+    return VersionSolver(type, cache, root, lockFile ?? LockFile.empty(),
+            useLatest ?? const [])
         .solve();
   });
 }

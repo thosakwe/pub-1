@@ -9,44 +9,23 @@ import 'test_pub.dart';
 
 main() {
   forBothPubGetAndUpgrade((command) {
-    group("without --packages-dir", () {
-      test("removes package directories near entrypoints", () async {
-        await d.dir(appPath, [
-          d.appPubspec(),
-          d.dir("packages"),
-          d.dir("bin/packages"),
-          d.dir("web/packages"),
-          d.dir("web/subdir/packages")
-        ]).create();
+    test('does not touch directories named "packages"', () async {
+      await d.dir(appPath, [
+        d.appPubspec(),
+        d.dir('packages'),
+        d.dir('bin/packages'),
+        d.dir('bin/subdir/packages'),
+        d.dir('lib/packages')
+      ]).create();
 
-        await pubCommand(command);
+      await pubCommand(command);
 
-        await d.dir(appPath, [
-          d.nothing("packages"),
-          d.nothing("bin/packages"),
-          d.nothing("web/packages"),
-          d.nothing("web/subdir/packages")
-        ]).validate();
-      });
-
-      test(
-          "doesn't remove package directories that pub wouldn't "
-          "generate", () async {
-        await d.dir(appPath, [
-          d.appPubspec(),
-          d.dir("packages"),
-          d.dir("bin/subdir/packages"),
-          d.dir("lib/packages")
-        ]).create();
-
-        await pubCommand(command);
-
-        await d.dir(appPath, [
-          d.nothing("packages"),
-          d.dir("bin/subdir/packages"),
-          d.dir("lib/packages")
-        ]).validate();
-      });
+      await d.dir(appPath, [
+        d.dir('packages'),
+        d.dir('bin/packages'),
+        d.dir('bin/subdir/packages'),
+        d.dir('lib/packages')
+      ]).validate();
     });
   });
 }

@@ -99,7 +99,7 @@ String fromFiles(List<String> files, {String baseDir, bool showAllChildren}) {
 /// If [showAllChildren] is `false`, then directories with more than ten items
 /// will have their contents truncated. Defaults to `false`.
 String fromMap(Map<String, Map> map, {bool showAllChildren}) {
-  var buffer = new StringBuffer();
+  var buffer = StringBuffer();
   _draw(buffer, "", null, map, showAllChildren: showAllChildren);
   return buffer.toString();
 }
@@ -128,8 +128,8 @@ String _getPrefix(bool isRoot, bool isLast) {
 
 void _draw(
     StringBuffer buffer, String prefix, String name, Map<String, Map> children,
-    {bool showAllChildren, bool isLast: false}) {
-  if (showAllChildren == null) showAllChildren = false;
+    {bool showAllChildren, bool isLast = false}) {
+  showAllChildren ??= false;
 
   // Don't draw a line for the root node.
   if (name != null) _drawLine(buffer, prefix, isLast, name);

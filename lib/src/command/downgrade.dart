@@ -15,6 +15,7 @@ class DowngradeCommand extends PubCommand {
       "Downgrade the current package's dependencies to oldest versions.\n\n"
       "This doesn't modify the lockfile, so it can be reset with \"pub get\".";
   String get invocation => "pub downgrade [dependencies...]";
+  String get docUrl => "https://www.dartlang.org/tools/pub/cmd/pub-downgrade";
 
   bool get isOffline => argResults['offline'];
 
@@ -27,17 +28,17 @@ class DowngradeCommand extends PubCommand {
         negatable: false,
         help: "Report what dependencies would change but don't change any.");
 
-    argParser.addFlag('packages-dir',
-        negatable: true,
-        help: "Generate a packages/ directory when installing packages.");
+    argParser.addFlag('packages-dir', negatable: true, hide: true);
   }
 
   Future run() async {
+    if (argResults.wasParsed('packages-dir')) {
+      log.warning(log.yellow(
+          'The --packages-dir flag is no longer used and does nothing.'));
+    }
     var dryRun = argResults['dry-run'];
     await entrypoint.acquireDependencies(SolveType.DOWNGRADE,
-        useLatest: argResults.rest,
-        dryRun: dryRun,
-        packagesDir: argResults['packages-dir']);
+        useLatest: argResults.rest, dryRun: dryRun);
 
     if (isOffline) {
       log.warning("Warning: Downgrading when offline may not update you to "

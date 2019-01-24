@@ -4,7 +4,6 @@
 
 import 'dart:collection';
 
-import 'package:analyzer/analyzer.dart' as analyzer;
 import 'package:path/path.dart' as p;
 
 import '../ascii_tree.dart' as tree;
@@ -15,24 +14,17 @@ import '../package.dart';
 import '../sdk.dart';
 import '../utils.dart';
 
-/// Returns `true` if [path] looks like a Dart entrypoint.
-bool _isDartExecutable(String path) {
-  try {
-    var unit = analyzer.parseDartFile(path, parseFunctionBodies: false);
-    return isEntrypoint(unit);
-  } on analyzer.AnalyzerErrorGroup {
-    return false;
-  }
-}
-
 /// Handles the `deps` pub command.
 class DepsCommand extends PubCommand {
   String get name => "deps";
   String get description => "Print package dependencies.";
   List<String> get aliases => const ["dependencies", "tab"];
   String get invocation => "pub deps";
-  String get docUrl => "http://dartlang.org/tools/pub/cmd/pub-deps.html";
+  String get docUrl => "https://www.dartlang.org/tools/pub/cmd/pub-deps";
   bool get takesArguments => false;
+
+  final AnalysisContextManager analysisContextManager =
+      AnalysisContextManager();
 
   /// The [StringBuffer] used to accumulate the output.
   StringBuffer _buffer;
@@ -60,7 +52,7 @@ class DepsCommand extends PubCommand {
     // Explicitly run this in case we don't access `entrypoint.packageGraph`.
     entrypoint.assertUpToDate();
 
-    _buffer = new StringBuffer();
+    _buffer = StringBuffer();
 
     if (argResults['executables']) {
       _outputExecutables();
@@ -174,8 +166,8 @@ class DepsCommand extends PubCommand {
     // The work list for the breadth-first traversal. It contains the package
     // being added to the tree, and the parent map that will receive that
     // package.
-    var toWalk = new Queue<Pair<Package, Map<String, Map>>>();
-    var visited = new Set<String>.from([entrypoint.root.name]);
+    var toWalk = Queue<Pair<Package, Map<String, Map>>>();
+    var visited = Set<String>.from([entrypoint.root.name]);
 
     // Start with the root dependencies.
     var packageTree = <String, Map>{};
@@ -185,7 +177,7 @@ class DepsCommand extends PubCommand {
       immediateDependencies.removeAll(entrypoint.root.devDependencies.keys);
     }
     for (var name in immediateDependencies) {
-      toWalk.add(new Pair(_getPackage(name), packageTree));
+      toWalk.add(Pair(_getPackage(name), packageTree));
     }
 
     // Do a breadth-first walk to the dependency graph.
@@ -206,7 +198,7 @@ class DepsCommand extends PubCommand {
       map[_labelPackage(package)] = childMap;
 
       for (var dep in package.dependencies.values) {
-        toWalk.add(new Pair(_getPackage(dep.name), childMap));
+        toWalk.add(Pair(_getPackage(dep.name), childMap));
       }
     }
 
@@ -272,13 +264,27 @@ class DepsCommand extends PubCommand {
     }
   }
 
+  /// Returns `true` if [path] looks like a Dart entrypoint.
+  bool _isDartExecutable(String path) {
+    try {
+      path = p.normalize(path);
+      var unit = analysisContextManager.parse(path);
+      return isEntrypoint(unit);
+    } on AnalyzerErrorGroup {
+      return false;
+    }
+  }
+
   /// Lists all Dart files in the `bin` directory of the [package].
   ///
   /// Returns file names without extensions.
-  Iterable<String> _getExecutablesFor(Package package) =>
-      package.executablePaths
-          .where((e) => _isDartExecutable(p.absolute(package.dir, e)))
-          .map((e) => p.basenameWithoutExtension(e));
+  Iterable<String> _getExecutablesFor(Package package) {
+    var packagePath = p.normalize(p.absolute(package.dir));
+    analysisContextManager.createContextsForDirectory(packagePath);
+    return package.executablePaths
+        .where((e) => _isDartExecutable(p.absolute(package.dir, e)))
+        .map(p.basenameWithoutExtension);
+  }
 
   /// Returns formatted string that lists [executables] for the [packageName].
   /// Examples:
@@ -294,7 +300,7 @@ class DepsCommand extends PubCommand {
       // If executable matches the package name omit the name of executable in
       // the output.
       return executables.first != packageName
-          ? '${packageName}:${log.bold(executables.first)}'
+          ? '$packageName:${log.bold(executables.first)}'
           : log.bold(executables.first);
     }
 
@@ -309,6 +315,6 @@ class DepsCommand extends PubCommand {
         return e1.compareTo(e2);
     });
 
-    return '${packageName}: ${executables.map(log.bold).join(', ')}';
+    return '$packageName: ${executables.map(log.bold).join(', ')}';
   }
 }

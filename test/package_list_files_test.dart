@@ -87,7 +87,7 @@ main() {
         ])
       ]).create();
 
-      await expect(
+      expect(
           entrypoint.root.listFiles(useGitIgnore: true),
           unorderedEquals([
             p.join(root, 'pubspec.yaml'),
@@ -96,7 +96,7 @@ main() {
             p.join(root, 'subdir', 'subfile2.text')
           ]));
 
-      await expect(
+      expect(
           entrypoint.root.listFiles(),
           unorderedEquals([
             p.join(root, 'pubspec.yaml'),
@@ -186,9 +186,9 @@ main() {
 }
 
 void createEntrypoint([String path]) {
-  if (path == null) path = appPath;
+  path ??= appPath;
   root = p.join(d.sandbox, path);
-  entrypoint = new Entrypoint(root, new SystemCache(rootDir: root));
+  entrypoint = Entrypoint(root, SystemCache(rootDir: root));
 
   addTearDown(() {
     entrypoint = null;

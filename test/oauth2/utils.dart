@@ -15,33 +15,36 @@ import 'package:pub/src/utils.dart';
 
 Future authorizePub(TestProcess pub, ShelfTestServer server,
     [String accessToken = "access token"]) async {
-  expect(
+  await expectLater(
       pub.stdout,
       emits('Pub needs your authorization to upload packages on your '
           'behalf.'));
 
   var line = await pub.stdout.next;
   var match =
-      new RegExp(r'[?&]redirect_uri=([0-9a-zA-Z.%+-]+)[$&]').firstMatch(line);
+      RegExp(r'[?&]redirect_uri=([0-9a-zA-Z.%+-]+)[$&]').firstMatch(line);
   expect(match, isNotNull);
 
   var redirectUrl = Uri.parse(Uri.decodeComponent(match.group(1)));
   redirectUrl = _addQueryParameters(redirectUrl, {'code': 'access code'});
-  var response = await (new http.Request('GET', redirectUrl)
-        ..followRedirects = false)
-      .send();
+
+  // Expect the /token request
+  handleAccessTokenRequest(server, accessToken);
+
+  // Call the redirect url as the browser would otherwise do after successful
+  // sign-in with Google account.
+  var response =
+      await (http.Request('GET', redirectUrl)..followRedirects = false).send();
   expect(response.headers['location'],
       equals('https://pub.dartlang.org/authorized'));
-
-  handleAccessTokenRequest(server, accessToken);
 }
 
 void handleAccessTokenRequest(ShelfTestServer server, String accessToken) {
   server.handler.expect('POST', '/token', (request) async {
     var body = await request.readAsString();
-    expect(body, matches(new RegExp(r'(^|&)code=access\+code(&|$)')));
+    expect(body, matches(RegExp(r'(^|&)code=access\+code(&|$)')));
 
-    return new shelf.Response.ok(
+    return shelf.Response.ok(
         jsonEncode({"access_token": accessToken, "token_type": "bearer"}),
         headers: {'content-type': 'application/json'});
   });

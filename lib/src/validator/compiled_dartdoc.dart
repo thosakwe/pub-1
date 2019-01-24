@@ -16,7 +16,7 @@ class CompiledDartdocValidator extends Validator {
   CompiledDartdocValidator(Entrypoint entrypoint) : super(entrypoint);
 
   Future validate() {
-    return new Future.sync(() {
+    return Future.sync(() {
       for (var entry in entrypoint.root.listFiles(useGitIgnore: true)) {
         if (path.basename(entry) != "nav.json") continue;
         var dir = path.dirname(entry);
@@ -30,7 +30,7 @@ class CompiledDartdocValidator extends Validator {
           path.join(dir, "client-live-nav.js")
         ];
 
-        if (files.every((val) => fileExists(val))) {
+        if (files.every(fileExists)) {
           warnings.add("Avoid putting generated documentation in "
               "${path.relative(dir)}.\n"
               "Generated documentation bloats the package with redundant "

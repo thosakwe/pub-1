@@ -307,7 +307,7 @@ foo:http://example.com/
 
       await pubGet(environment: {"FLUTTER_ROOT": p.join(d.sandbox, 'flutter')});
 
-      d.dir('flutter', [d.file('version', '2.4.6')]).create();
+      await d.dir('flutter', [d.file('version', '2.4.6')]).create();
 
       // Run pub manually here because otherwise we don't have access to
       // d.sandbox.
@@ -462,9 +462,6 @@ foo:http://example.com/
 
 /// Runs every command that care about the world being up-to-date, and asserts
 /// that it prints [message] as part of its error.
-///
-/// If [environment] is passed, it's called to produce a map that's merged into
-/// the OS environment for the pub commands.
 void _requiresPubGet(String message) {
   for (var command in ["run", "deps"]) {
     test("for pub $command", () {
@@ -482,7 +479,7 @@ void _requiresPubGet(String message) {
 /// If [runDeps] is false, `pub deps` isn't included in the test. This is
 /// sometimes not desirable, since it uses slightly stronger checks for pubspec
 /// and lockfile consistency.
-void _runsSuccessfully({bool runDeps: true}) {
+void _runsSuccessfully({bool runDeps = true}) {
   var commands = ["run"];
   if (runDeps) commands.add("deps");
 
@@ -496,11 +493,11 @@ void _runsSuccessfully({bool runDeps: true}) {
       // If pub determines that everything is up-to-date, it should set the
       // mtimes to indicate that.
       var pubspecModified =
-          new File(p.join(d.sandbox, "myapp/pubspec.yaml")).lastModifiedSync();
+          File(p.join(d.sandbox, "myapp/pubspec.yaml")).lastModifiedSync();
       var lockFileModified =
-          new File(p.join(d.sandbox, "myapp/pubspec.lock")).lastModifiedSync();
+          File(p.join(d.sandbox, "myapp/pubspec.lock")).lastModifiedSync();
       var packagesModified =
-          new File(p.join(d.sandbox, "myapp/.packages")).lastModifiedSync();
+          File(p.join(d.sandbox, "myapp/.packages")).lastModifiedSync();
 
       expect(!pubspecModified.isAfter(lockFileModified), isTrue);
       expect(!lockFileModified.isAfter(packagesModified), isTrue);
@@ -512,7 +509,7 @@ void _runsSuccessfully({bool runDeps: true}) {
 Future _touch(String path) async {
   // Delay a bit to make sure the modification times are noticeably different.
   // 1s seems to be the finest granularity that dart:io reports.
-  await new Future.delayed(new Duration(seconds: 1));
+  await Future.delayed(Duration(seconds: 1));
 
   path = p.join(d.sandbox, "myapp", path);
   touch(path);

@@ -13,7 +13,7 @@ import '../test_pub.dart';
 import 'utils.dart';
 
 Validator sdkConstraint(Entrypoint entrypoint) =>
-    new SdkConstraintValidator(entrypoint);
+    SdkConstraintValidator(entrypoint);
 
 main() {
   group('should consider a package valid if it', () {
@@ -126,8 +126,8 @@ main() {
       ]).create();
       expect(
           validatePackage(sdkConstraint),
-          completion(pairOf(
-              anyElement(contains('">=2.0.0-dev.51.0 <2.0.0"')), isEmpty)));
+          completion(
+              pairOf(anyElement(contains('">=2.0.0 <3.0.0"')), isEmpty)));
     });
 
     test("has a Fuchsia SDK constraint with no SDK constraint", () async {
@@ -140,8 +140,8 @@ main() {
       ]).create();
       expect(
           validatePackage(sdkConstraint),
-          completion(pairOf(
-              anyElement(contains('">=2.0.0-dev.51.0 <2.0.0"')), isEmpty)));
+          completion(
+              pairOf(anyElement(contains('">=2.0.0 <3.0.0"')), isEmpty)));
     });
   });
 }
