@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:oauth2/oauth2.dart';
@@ -17,6 +18,43 @@ import 'system_cache.dart';
 import 'utils.dart';
 
 export 'package:oauth2/oauth2.dart';
+
+/// If `PUB_HOSTED_URL` is set, attempt to find configuration in `credentials.json`
+/// matching the current value.
+///
+/// If it is not found, an error will be thrown.
+String _findCredentialsForThisHost(SystemCache cache) {
+  // TODO: How to report errors on throw?
+  var path = _credentialsFile(cache);
+  if (!fileExists(path)) return null;
+  var credentialsData = json.decode(readTextFile(path));
+
+  if (credentialsData is Map) {
+    // Detect a `credentials.json` where there are only credentials
+    // for `https://pub.dartlang.org`.
+    if (credentialsData.containsKey('access_token')) {
+      credentialsData = {'https://pub.dartlang.org': credentialsData};
+    }
+
+    // At this point, `credentialsData` is a mapping from hostnames to credentials.
+    var hostedUrl =
+        Platform.environment['PUB_HOSTED_URL'] ?? 'https://pub.dartlang.org';
+    var hostCredentials = credentialsData[hostedUrl];
+
+    if (hostCredentials is Map) {
+      return json.encode(hostCredentials);
+    } else if (hostCredentials == null) {
+      throw StateError(
+          'The `PUB_HOSTED_URL` variable is currently set to "$hostedUrl", but $path contains no configuration for that host.');
+    } else {
+      throw ArgumentError.value(credentialsData,
+          'value for "$hostedUrl" in credentials.json', 'must contain a Map');
+    }
+  } else {
+    throw ArgumentError.value(
+        credentialsData, 'credentials.json', 'must contain a Map');
+  }
+}
 
 /// The pub client's OAuth2 identifier.
 final _identifier = '818368855108-8grd2eg9tj9f38os6f1urbcvsq399u8n.apps.'
@@ -137,6 +175,7 @@ Credentials _loadCredentials(SystemCache cache) {
     var path = _credentialsFile(cache);
     if (!fileExists(path)) return null;
 
+    // TODO: AAA
     var credentials = Credentials.fromJson(readTextFile(path));
     if (credentials.isExpired && !credentials.canRefresh) {
       log.error("Pub's authorization to upload packages has expired and "
