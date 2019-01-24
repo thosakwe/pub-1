@@ -32,7 +32,7 @@ String _findCredentialsForThisHost(SystemCache cache) {
   if (credentialsData is Map) {
     // Detect a `credentials.json` where there are only credentials
     // for `https://pub.dartlang.org`.
-    if (credentialsData.containsKey('access_token')) {
+    if (credentialsData.containsKey('accessToken')) {
       credentialsData = {'https://pub.dartlang.org': credentialsData};
     }
 
@@ -149,6 +149,14 @@ Future<T> withClient<T>(SystemCache cache, Future<T> fn(Client client)) {
 /// prompted to authorize the pub client.
 Future<Client> _getClient(SystemCache cache) async {
   var credentials = _loadCredentials(cache);
+  var hostedUrl =
+      Platform.environment['PUB_HOSTED_URL'] ?? 'https://pub.dartlang.org';
+
+  if (hostedUrl != 'https://pub.dartlang.org') {
+    // TODO: Does this throw...?
+    throw 'Pub has not yet been configured to interact with $hostedUrl. Run `pub auth $hostedUrl` first.';
+  }
+
   if (credentials == null) return await _authorize();
 
   var client = Client(credentials,
